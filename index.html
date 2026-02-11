@@ -56,8 +56,19 @@
 </head>
 <body>
     <div class="image-container">
-        <img id="randomImage" src="https://source.unsplash.com/600x400/?art,digital" alt="Random art">
+        <img id="randomImage" alt="Random art">
     </div>
     <h1>Oh, it's you</h1>
+
+    <script>
+        // Genera un numero casuale per forzare un'immagine diversa ogni volta
+        const randomSeed = Math.floor(Math.random() * 1000);
+        // Categorie: art, digital-art, painting, abstract
+        const categories = ['art', 'digital-art', 'painting', 'abstract', 'illustration'];
+        const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+        
+        document.getElementById('randomImage').src = 
+            `https://source.unsplash.com/600x400/?${randomCategory}&sig=${randomSeed}`;
+    </script>
 </body>
 </html>
