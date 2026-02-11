@@ -20,131 +20,189 @@
             overflow: hidden;
         }
         
-        #foo {
+        .draggable {
             position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 48px;
             color: white;
             text-shadow: 0 0 10px rgba(255,255,255,0.3);
             cursor: move;
             user-select: none;
-            padding: 20px;
+            padding: 12px 20px;
             transition: text-shadow 0.2s;
             will-change: left, top;
+            white-space: nowrap;
+            font-size: clamp(24px, 4vw, 48px);
         }
         
-        #foo:hover {
+        .draggable:hover {
             text-shadow: 0 0 20px rgba(255,255,255,0.5);
         }
         
-        #foo.dragging {
+        .draggable.dragging {
             opacity: 0.8;
             text-shadow: 0 0 30px rgba(255,255,255,0.7);
+        }
+
+        @media (max-width: 768px) {
+            .draggable {
+                font-size: clamp(18px, 3.5vw, 32px);
+                white-space: normal;
+                text-align: center;
+                width: 90%;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                padding: 10px;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="foo">Oh, it's you</div>
 
     <script>
-        const foo = document.getElementById('foo');
-        let isDragging = false;
-        let offsetX = 0;
-        let offsetY = 0;
+        class DraggableText {
+            constructor(element) {
+                this.element = element;
+                this.isDragging = false;
+                this.offsetX = 0;
+                this.offsetY = 0;
+                
+                // Adatta la dimensione in base alla lunghezza
+                this.adjustFontSize();
+                
+                // save init position
+                this.initialLeft = element.style.left;
+                this.initialTop = element.style.top;
+                this.initialTransform = element.style.transform;
+                
+                this.init();
+            }
 
-        function resetPosition() {
-            foo.style.left = '50%';
-            foo.style.top = '50%';
-            foo.style.transform = 'translate(-50%, -50%)';
+            adjustFontSize() {
+                const text = this.element.textContent;
+                const length = text.length;
+                
+                // Riduci la dimensione in base alla lunghezza del testo
+                if (length > 50) {
+                    this.element.style.fontSize = '28px';
+                } else if (length > 40) {
+                    this.element.style.fontSize = '32px';
+                } else if (length > 30) {
+                    this.element.style.fontSize = '36px';
+                } else if (length > 20) {
+                    this.element.style.fontSize = '42px';
+                } else {
+                    this.element.style.fontSize = '48px';
+                }
+            }
+
+            init() {
+                this.element.addEventListener('mousedown', this.startDrag.bind(this));
+                this.element.addEventListener('touchstart', this.startDrag.bind(this), { passive: false });
+                this.element.addEventListener('contextmenu', (e) => e.preventDefault());
+                
+                // Aggiungi resize observer per adattarsi ai cambiamenti
+                window.addEventListener('resize', () => {
+                    if (window.innerWidth < 768) {
+                        this.element.style.whiteSpace = 'normal';
+                        this.element.style.textAlign = 'center';
+                        this.element.style.width = '90%';
+                    } else {
+                        this.element.style.whiteSpace = 'nowrap';
+                        this.element.style.width = 'auto';
+                        this.element.style.textAlign = 'left';
+                    }
+                });
+            }
+
+            startDrag(e) {
+                e.preventDefault();
+                
+                if (this.element.style.transform && this.element.style.transform.includes('translate')) {
+                    const rect = this.element.getBoundingClientRect();
+                    this.element.style.left = rect.left + 'px';
+                    this.element.style.top = rect.top + 'px';
+                    this.element.style.transform = 'none';
+                }
+                
+                this.isDragging = true;
+                this.element.classList.add('dragging');
+                
+                const rect = this.element.getBoundingClientRect();
+                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                
+                this.offsetX = clientX - rect.left;
+                this.offsetY = clientY - rect.top;
+                
+                currentDraggable = this;
+            }
+
+            onDrag(x, y) {
+                const maxX = window.innerWidth - this.element.offsetWidth;
+                const maxY = window.innerHeight - this.element.offsetHeight;
+                
+                this.element.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
+                this.element.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
+                this.element.style.transform = 'none';
+            }
+
+            stopDrag() {
+                this.isDragging = false;
+                this.element.classList.remove('dragging');
+            }
+
+            resetPosition() {
+                this.element.style.left = this.initialLeft;
+                this.element.style.top = this.initialTop;
+                this.element.style.transform = this.initialTransform;
+            }
         }
 
-        foo.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            
-            if (foo.style.transform.includes('translate')) {
-                const rect = foo.getBoundingClientRect();
-                foo.style.left = rect.left + 'px';
-                foo.style.top = rect.top + 'px';
-                foo.style.transform = 'none';
-            }
-            
-            isDragging = true;
-            foo.classList.add('dragging');
-            
-            const rect = foo.getBoundingClientRect();
-            offsetX = e.clientX - rect.left;
-            offsetY = e.clientY - rect.top;
+        let currentDraggable = null;
+        const draggableElements = document.querySelectorAll('.draggable');
+        const draggableInstances = [];
+
+        draggableElements.forEach(el => {
+            draggableInstances.push(new DraggableText(el));
         });
 
         document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
+            if (!currentDraggable) return;
             e.preventDefault();
-            
-            const x = e.clientX - offsetX;
-            const y = e.clientY - offsetY;
-            
-            foo.style.left = x + 'px';
-            foo.style.top = y + 'px';
-            foo.style.transform = 'none';
+            currentDraggable.onDrag(e.clientX - currentDraggable.offsetX, e.clientY - currentDraggable.offsetY);
         });
 
         document.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                foo.classList.remove('dragging');
+            if (currentDraggable) {
+                currentDraggable.stopDrag();
+                currentDraggable = null;
             }
-        });
-
-        foo.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            
-            if (foo.style.transform.includes('translate')) {
-                const rect = foo.getBoundingClientRect();
-                foo.style.left = rect.left + 'px';
-                foo.style.top = rect.top + 'px';
-                foo.style.transform = 'none';
-            }
-            
-            isDragging = true;
-            foo.classList.add('dragging');
-            
-            const touch = e.touches[0];
-            const rect = foo.getBoundingClientRect();
-            offsetX = touch.clientX - rect.left;
-            offsetY = touch.clientY - rect.top;
         });
 
         document.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
+            if (!currentDraggable) return;
             e.preventDefault();
-            
             const touch = e.touches[0];
-            const x = touch.clientX - offsetX;
-            const y = touch.clientY - offsetY;
-            
-            foo.style.left = x + 'px';
-            foo.style.top = y + 'px';
-            foo.style.transform = 'none';
+            currentDraggable.onDrag(touch.clientX - currentDraggable.offsetX, touch.clientY - currentDraggable.offsetY);
         }, { passive: false });
 
         document.addEventListener('touchend', () => {
-            isDragging = false;
-            foo.classList.remove('dragging');
-        });
-
-        document.addEventListener('contextmenu', (e) => {
-            if (e.target === document.body) {
-                e.preventDefault();
-                resetPosition();
+            if (currentDraggable) {
+                currentDraggable.stopDrag();
+                currentDraggable = null;
             }
         });
 
-        foo.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
+        // reset with mouse dx
+        document.addEventListener('contextmenu', (e) => {
+            if (e.target === document.body) {
+                e.preventDefault();
+                draggableInstances.forEach(instance => {
+                    instance.resetPosition();
+                });
+            }
         });
 
+        // reset with double tap (mobile)
         let lastTap = 0;
         document.addEventListener('touchend', (e) => {
             if (e.target === document.body) {
@@ -153,11 +211,36 @@
                 
                 if (tapLength < 500 && tapLength > 0) {
                     e.preventDefault();
-                    resetPosition();
+                    draggableInstances.forEach(instance => {
+                        instance.resetPosition();
+                    });
                 }
                 lastTap = currentTime;
             }
         });
+
+        function addDraggableText(text, id, left, top, transform = 'translate(-50%, -50%)') {
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = 'draggable';
+            div.textContent = text;
+            div.style.left = left;
+            div.style.top = top;
+            div.style.transform = transform;
+            
+            document.body.appendChild(div);
+            
+            const instance = new DraggableText(div);
+            draggableInstances.push(instance);
+            return instance;
+        }
+
+        // more text! - Ora si adatta automaticamente
+        addDraggableText('Oh, it\'s you', 'foo', '50%', '25%');
+        addDraggableText('It\'s been a long time. How have you been?', 'bar', '50%', '40%');
+        addDraggableText('I\'ve been quite occupied with being deceased,', 'baz', '50%', '55%');
+        addDraggableText('you know, ever since you KILLED ME.', 'qux', '50%', '70%');
+        
     </script>
 </body>
 </html>
