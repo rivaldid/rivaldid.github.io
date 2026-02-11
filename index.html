@@ -5,28 +5,159 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The deelab is a lie</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
+            margin: 0;
             height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            background: #0a0c0f;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 20%),
+                radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.05) 0%, transparent 25%),
+                radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.03) 0%, transparent 30%),
+                radial-gradient(circle at 90% 20%, rgba(255, 255, 255, 0.04) 0%, transparent 22%),
+                radial-gradient(circle at 10% 60%, rgba(255, 255, 255, 0.02) 0%, transparent 18%),
+                linear-gradient(135deg, #0f1215 0%, #1a1e24 100%);
             font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
+            overflow: hidden;
         }
         
-        h1 {
-            font-size: 3rem;
-            color: #333;
+        #foo {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: white;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+            cursor: move;
+            user-select: none;
+            padding: 20px;
+            transition: text-shadow 0.2s;
+            will-change: left, top;
+        }
+        
+        #foo:hover {
+            text-shadow: 0 0 20px rgba(255,255,255,0.5);
+        }
+        
+        #foo.dragging {
+            opacity: 0.8;
+            text-shadow: 0 0 30px rgba(255,255,255,0.7);
         }
     </style>
 </head>
 <body>
-    <h1>Oh, it's you</h1>
+    <div id="foo">Oh, it's you</div>
+
+    <script>
+        const foo = document.getElementById('foo');
+        let isDragging = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        function resetPosition() {
+            foo.style.left = '50%';
+            foo.style.top = '50%';
+            foo.style.transform = 'translate(-50%, -50%)';
+        }
+
+        foo.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            
+            if (foo.style.transform.includes('translate')) {
+                const rect = foo.getBoundingClientRect();
+                foo.style.left = rect.left + 'px';
+                foo.style.top = rect.top + 'px';
+                foo.style.transform = 'none';
+            }
+            
+            isDragging = true;
+            foo.classList.add('dragging');
+            
+            const rect = foo.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            const x = e.clientX - offsetX;
+            const y = e.clientY - offsetY;
+            
+            foo.style.left = x + 'px';
+            foo.style.top = y + 'px';
+            foo.style.transform = 'none';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                foo.classList.remove('dragging');
+            }
+        });
+
+        foo.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            
+            if (foo.style.transform.includes('translate')) {
+                const rect = foo.getBoundingClientRect();
+                foo.style.left = rect.left + 'px';
+                foo.style.top = rect.top + 'px';
+                foo.style.transform = 'none';
+            }
+            
+            isDragging = true;
+            foo.classList.add('dragging');
+            
+            const touch = e.touches[0];
+            const rect = foo.getBoundingClientRect();
+            offsetX = touch.clientX - rect.left;
+            offsetY = touch.clientY - rect.top;
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            const x = touch.clientX - offsetX;
+            const y = touch.clientY - offsetY;
+            
+            foo.style.left = x + 'px';
+            foo.style.top = y + 'px';
+            foo.style.transform = 'none';
+        }, { passive: false });
+
+        document.addEventListener('touchend', () => {
+            isDragging = false;
+            foo.classList.remove('dragging');
+        });
+
+        document.addEventListener('contextmenu', (e) => {
+            if (e.target === document.body) {
+                e.preventDefault();
+                resetPosition();
+            }
+        });
+
+        foo.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+
+        let lastTap = 0;
+        document.addEventListener('touchend', (e) => {
+            if (e.target === document.body) {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTap;
+                
+                if (tapLength < 500 && tapLength > 0) {
+                    e.preventDefault();
+                    resetPosition();
+                }
+                lastTap = currentTime;
+            }
+        });
+    </script>
 </body>
 </html>
