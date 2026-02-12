@@ -345,13 +345,13 @@ function getFullIndex() {
 
         // ==================== CARICA CONTENUTO MD ====================
         async function loadMarkdownContent(filePath) {
-            const response = await fetch(filePath);
-            return await response.text();
+            const response = fetch(filePath);
+            return response.text();
         }
 
         // ==================== RENDER LISTA FILE ====================
-        async function renderFileList() {
-            cleanupAllDraggable();
+353
+    cleanupAllDraggable();
             
             const files = getFullIndex();
             
@@ -392,7 +392,7 @@ function getFullIndex() {
                 `;
                 
                 item.addEventListener('click', async () => {
-                    const content = await loadMarkdownContent(file.path);
+                    const content = loadMarkdownContent(file.path);
                     renderFileContent({
                         ...file,
                         content: content
