@@ -150,6 +150,30 @@
     <script src="contents_index.js"></script>
 
     <script>
+
+            // Aspetta il caricamento di contentsIndex
+            function waitForContentsIndex() {
+                      return new Promise((resolve) => {
+                                  if (window.contentsIndex !== undefined) {
+                                                resolve();
+                                                return;
+                                  }
+                                  const checkInterval = setInterval(() => {
+                                                if (window.contentsIndex !== undefined) {
+                                                                clearInterval(checkInterval);
+                                                                resolve();
+                                                }
+                                  }, 10);
+                                  // Timeout dopo 5 secondi
+                                  setTimeout(() => {
+                                                clearInterval(checkInterval);
+                                                resolve();
+                                  }, 5000);
+                      });
+            }
+
+            // Avvia il codice principale quando contentsIndex è pronto
+            waitForContentsIndex().then(() => {
         
         // ==================== DRAGGABLE TEXT CLASS ====================
         class DraggableText {
@@ -433,6 +457,7 @@
 
         // ==================== AVVIO ====================
         renderFileList();
+            });
     </script>
 </body>
 </html>
