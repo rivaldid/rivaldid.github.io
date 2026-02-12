@@ -344,9 +344,11 @@ function getFullIndex() {
         }
 
         // ==================== CARICA CONTENUTO MD ====================
-        async function loadMarkdownContent(filePath) {
-            const response = fetch(filePath);
-            return response.text();
+        function loadMarkdownContent(filePath) {
+            const xhr = new XMLHttpRequest();
+                    xhr.open('GET', filePath, false); // false = synchronous
+                    xhr.send();
+                    return xhr.responseText;
         }
 
         // ==================== RENDER LISTA FILE ====================
