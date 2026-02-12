@@ -150,6 +150,7 @@
     <script src="contents_index.js"></script>
 
     <script>
+        
         // ==================== DRAGGABLE TEXT CLASS ====================
         class DraggableText {
             constructor(element) {
@@ -164,13 +165,13 @@
                 
                 this.init();
             }
-
+        
             init() {
                 this.element.addEventListener('mousedown', this.startDrag.bind(this));
                 this.element.addEventListener('touchstart', this.startDrag.bind(this), { passive: false });
                 this.element.addEventListener('contextmenu', (e) => e.preventDefault());
             }
-
+        
             startDrag(e) {
                 e.preventDefault();
                 
@@ -193,7 +194,7 @@
                 
                 currentDraggable = this;
             }
-
+        
             onDrag(x, y) {
                 const maxX = window.innerWidth - this.element.offsetWidth;
                 const maxY = window.innerHeight - this.element.offsetHeight;
@@ -202,12 +203,12 @@
                 this.element.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
                 this.element.style.transform = 'none';
             }
-
+        
             stopDrag() {
                 this.isDragging = false;
                 this.element.classList.remove('dragging');
             }
-
+        
             resetPosition() {
                 this.element.style.left = this.initialLeft;
                 this.element.style.top = this.initialTop;
@@ -219,7 +220,7 @@
                 this.element.removeEventListener('touchstart', this.startDrag);
                 this.element.remove();
             }
-        }
+        } // end draggable class
 
         // ==================== GLOBALI ====================
         let currentDraggable = null;
