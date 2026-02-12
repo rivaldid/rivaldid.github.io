@@ -1,2 +1,3 @@
-window.contentsIndex = [  "portal.md",
+window.contentsIndex = [  
+  "portal.md"
 ];
