@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The deelab is a lie</title>
     <style>
+
         body {
             margin: 0;
             height: 100vh;
@@ -16,48 +17,140 @@
                 radial-gradient(circle at 90% 20%, rgba(255, 255, 255, 0.04) 0%, transparent 22%),
                 radial-gradient(circle at 10% 60%, rgba(255, 255, 255, 0.02) 0%, transparent 18%),
                 linear-gradient(135deg, #0f1215 0%, #1a1e24 100%);
-            font-family: Arial, sans-serif;
+            font-family: 'Courier New', monospace;
             overflow: hidden;
+            color: white;
         }
-        
+
+        #file-list {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+            background: rgba(10, 12, 15, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: white;
+        }
+
+        .file-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateX(5px);
+        }
+
+        .file-icon {
+            margin-right: 15px;
+            font-size: 24px;
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .file-date {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .close-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            cursor: pointer;
+            color: white;
+            transition: all 0.2s;
+            z-index: 2000;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+
         .draggable {
             position: absolute;
             color: white;
             text-shadow: 0 0 10px rgba(255,255,255,0.3);
             cursor: move;
             user-select: none;
-            padding: 12px 20px;
+            padding: 20px;
             transition: text-shadow 0.2s;
             will-change: left, top;
-            white-space: nowrap;
-            font-size: clamp(24px, 4vw, 48px);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-width: 80vw;
+            background: rgba(10, 12, 15, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            font-size: clamp(16px, 2vw, 24px);
+            line-height: 1.6;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 1500;
         }
         
         .draggable:hover {
             text-shadow: 0 0 20px rgba(255,255,255,0.5);
+            border-color: rgba(255, 255, 255, 0.4);
         }
         
         .draggable.dragging {
-            opacity: 0.8;
+            opacity: 0.9;
             text-shadow: 0 0 30px rgba(255,255,255,0.7);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
         }
 
-        @media (max-width: 768px) {
-            .draggable {
-                font-size: clamp(18px, 3.5vw, 32px);
-                white-space: normal;
-                text-align: center;
-                width: 90%;
-                left: 50% !important;
-                transform: translateX(-50%) !important;
-                padding: 10px;
-            }
+        .empty-state, .loading {
+            text-align: center;
+            padding: 40px;
+            color: rgba(255,255,255,0.7);
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
+    <div id="app"></div>
+
+    <script src="contents_index.js"></script>
 
     <script>
+        // ==================== DRAGGABLE TEXT CLASS ====================
         class DraggableText {
             constructor(element) {
                 this.element = element;
@@ -65,10 +158,6 @@
                 this.offsetX = 0;
                 this.offsetY = 0;
                 
-                // Adatta la dimensione in base alla lunghezza
-                this.adjustFontSize();
-                
-                // save init position
                 this.initialLeft = element.style.left;
                 this.initialTop = element.style.top;
                 this.initialTransform = element.style.transform;
@@ -76,41 +165,10 @@
                 this.init();
             }
 
-            adjustFontSize() {
-                const text = this.element.textContent;
-                const length = text.length;
-                
-                // Riduci la dimensione in base alla lunghezza del testo
-                if (length > 50) {
-                    this.element.style.fontSize = '28px';
-                } else if (length > 40) {
-                    this.element.style.fontSize = '32px';
-                } else if (length > 30) {
-                    this.element.style.fontSize = '36px';
-                } else if (length > 20) {
-                    this.element.style.fontSize = '42px';
-                } else {
-                    this.element.style.fontSize = '48px';
-                }
-            }
-
             init() {
                 this.element.addEventListener('mousedown', this.startDrag.bind(this));
                 this.element.addEventListener('touchstart', this.startDrag.bind(this), { passive: false });
                 this.element.addEventListener('contextmenu', (e) => e.preventDefault());
-                
-                // Aggiungi resize observer per adattarsi ai cambiamenti
-                window.addEventListener('resize', () => {
-                    if (window.innerWidth < 768) {
-                        this.element.style.whiteSpace = 'normal';
-                        this.element.style.textAlign = 'center';
-                        this.element.style.width = '90%';
-                    } else {
-                        this.element.style.whiteSpace = 'nowrap';
-                        this.element.style.width = 'auto';
-                        this.element.style.textAlign = 'left';
-                    }
-                });
             }
 
             startDrag(e) {
@@ -155,16 +213,21 @@
                 this.element.style.top = this.initialTop;
                 this.element.style.transform = this.initialTransform;
             }
+            
+            destroy() {
+                this.element.removeEventListener('mousedown', this.startDrag);
+                this.element.removeEventListener('touchstart', this.startDrag);
+                this.element.remove();
+            }
         }
 
+        // ==================== GLOBALI ====================
         let currentDraggable = null;
-        const draggableElements = document.querySelectorAll('.draggable');
-        const draggableInstances = [];
+        let draggableInstances = [];
+        let currentContextMenuHandler = null;
+        const app = document.getElementById('app');
 
-        draggableElements.forEach(el => {
-            draggableInstances.push(new DraggableText(el));
-        });
-
+        // ==================== DRAG EVENTS ====================
         document.addEventListener('mousemove', (e) => {
             if (!currentDraggable) return;
             e.preventDefault();
@@ -192,55 +255,183 @@
             }
         });
 
-        // reset with mouse dx
-        document.addEventListener('contextmenu', (e) => {
-            if (e.target === document.body) {
-                e.preventDefault();
-                draggableInstances.forEach(instance => {
-                    instance.resetPosition();
-                });
-            }
-        });
-
-        // reset with double tap (mobile)
-        let lastTap = 0;
-        document.addEventListener('touchend', (e) => {
-            if (e.target === document.body) {
-                const currentTime = new Date().getTime();
-                const tapLength = currentTime - lastTap;
-                
-                if (tapLength < 500 && tapLength > 0) {
-                    e.preventDefault();
-                    draggableInstances.forEach(instance => {
-                        instance.resetPosition();
-                    });
-                }
-                lastTap = currentTime;
-            }
-        });
-
-        function addDraggableText(text, id, left, top, transform = 'translate(-50%, -50%)') {
-            const div = document.createElement('div');
-            div.id = id;
-            div.className = 'draggable';
-            div.textContent = text;
-            div.style.left = left;
-            div.style.top = top;
-            div.style.transform = transform;
+        // ==================== GENERA METADATI AUTOMATICI ====================
+        function generateFileMetadata(filename, index) {
+            // PATH - automatico
+            const path = `contents/${filename}`;
             
-            document.body.appendChild(div);
+            // DISPLAY NAME - toglie .md, trasforma trattini in spazi, capitalizza
+            let display = filename
+                .replace('.md', '')
+                .replace(/-/g, ' ')
+                .replace(/\b\w/g, l => l.toUpperCase());
             
-            const instance = new DraggableText(div);
-            draggableInstances.push(instance);
-            return instance;
+            // DATE - decrescente in base all'ordine (più recente primo)
+            const date = new Date();
+            date.setDate(date.getDate() - index);
+            
+            return {
+                name: filename,
+                display: display,
+                path: path,
+                date: date.toISOString()
+            };
         }
 
-        // more text! - Ora si adatta automaticamente
-        addDraggableText('Oh, it\'s you', 'foo', '50%', '25%');
-        addDraggableText('It\'s been a long time. How have you been?', 'bar', '50%', '40%');
-        addDraggableText('I\'ve been quite occupied with being deceased,', 'baz', '50%', '55%');
-        addDraggableText('you know, ever since you KILLED ME.', 'qux', '50%', '70%');
-        
+        // ==================== GENERA INDICE COMPLETO ====================
+        function getFullIndex() {
+            if (!window.contentsIndex || !Array.isArray(window.contentsIndex)) {
+                return [];
+            }
+            
+            // Mantieni l'ordine dell'array (primo = più recente)
+            return window.contentsIndex.map((filename, index) => 
+                generateFileMetadata(filename, index)
+            );
+        }
+
+        // ==================== FORMATTA DATA ====================
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('it-IT', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // ==================== PULIZIA ====================
+        function cleanupAllDraggable() {
+            draggableInstances.forEach(instance => {
+                try { instance.destroy(); } catch(e) {}
+            });
+            draggableInstances = [];
+            
+            if (currentContextMenuHandler) {
+                document.removeEventListener('contextmenu', currentContextMenuHandler);
+                currentContextMenuHandler = null;
+            }
+            
+            app.innerHTML = '';
+            document.querySelectorAll('.draggable, .close-btn').forEach(el => el.remove());
+        }
+
+        // ==================== CARICA CONTENUTO MD ====================
+        async function loadMarkdownContent(filePath) {
+            const response = await fetch(filePath);
+            return await response.text();
+        }
+
+        // ==================== RENDER LISTA FILE ====================
+        async function renderFileList() {
+            cleanupAllDraggable();
+            
+            const files = getFullIndex();
+            
+            if (files.length === 0) {
+                app.innerHTML = `
+                    <div id="file-list">
+                        <h2 style="margin-top:0; color:white;">📁 contents/</h2>
+                        <div class="empty-state">
+                            📂 Nessun file in contents_index.js<br><br>
+                            Aggiungi: <code>const contentsIndex = ["file.md"];</code>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const fileListDiv = document.createElement('div');
+            fileListDiv.id = 'file-list';
+            
+            const title = document.createElement('h2');
+            title.innerHTML = `📁 contents/ <span style="font-size:14px; color:rgba(255,255,255,0.5);">(${files.length} file)</span>`;
+            title.style.marginTop = '0';
+            title.style.marginBottom = '20px';
+            title.style.borderBottom = '1px solid rgba(255,255,255,0.2)';
+            title.style.paddingBottom = '10px';
+            fileListDiv.appendChild(title);
+            
+            files.forEach(file => {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                
+                item.innerHTML = `
+                    <span class="file-icon">📄</span>
+                    <div class="file-info">
+                        <div class="file-name">${file.display}</div>
+                        <div class="file-date">📅 ${formatDate(file.date)}</div>
+                    </div>
+                `;
+                
+                item.addEventListener('click', async () => {
+                    const content = await loadMarkdownContent(file.path);
+                    renderFileContent({
+                        ...file,
+                        content: content
+                    });
+                });
+                
+                fileListDiv.appendChild(item);
+            });
+            
+            app.appendChild(fileListDiv);
+        }
+
+        // ==================== RENDER CONTENUTO FILE ====================
+        function renderFileContent(file) {
+            cleanupAllDraggable();
+            
+            const closeBtn = document.createElement('div');
+            closeBtn.className = 'close-btn';
+            closeBtn.innerHTML = '×';
+            closeBtn.addEventListener('click', renderFileList);
+            app.appendChild(closeBtn);
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'draggable';
+            contentDiv.style.left = '50%';
+            contentDiv.style.top = '50%';
+            contentDiv.style.transform = 'translate(-50%, -50%)';
+            
+            // Markdown semplice -> HTML
+            let htmlContent = file.content
+                .replace(/^# (.*$)/gm, '<h1 style="margin-top:0; color:#ffd700; font-size:1.8em;">$1</h1>')
+                .replace(/^## (.*$)/gm, '<h2 style="color:#99ccff; font-size:1.4em;">$1</h2>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#ff9999;">$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em style="color:#99ff99;">$1</em>')
+                .replace(/- (.*$)/gm, '• $1<br>')
+                .replace(/\n\n/g, '<br><br>')
+                .replace(/\n/g, '<br>');
+            
+            contentDiv.innerHTML = `
+                <div style="margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.2); padding-bottom:10px;">
+                    <span style="font-size:14px; color:rgba(255,255,255,0.7);">📄 ${file.display}</span>
+                    <span style="font-size:12px; color:rgba(255,255,255,0.5); margin-left:10px;">📅 ${formatDate(file.date)}</span>
+                </div>
+                <div style="max-height:70vh; overflow-y:auto; padding-right:10px;">
+                    ${htmlContent}
+                </div>
+            `;
+            
+            document.body.appendChild(contentDiv);
+            
+            const instance = new DraggableText(contentDiv);
+            draggableInstances.push(instance);
+            
+            currentContextMenuHandler = (e) => {
+                if (e.target === document.body) {
+                    e.preventDefault();
+                    instance.resetPosition();
+                }
+            };
+            document.addEventListener('contextmenu', currentContextMenuHandler);
+        }
+
+        // ==================== AVVIO ====================
+        renderFileList();
     </script>
 </body>
 </html>
