@@ -1,3 +1,2 @@
-const contentsIndex = [
-  "portal.md",
+window.contentsIndex = [  "portal.md",
 ];
