@@ -70,15 +70,9 @@
 		.file-name {
 			font-size: 18px;
 			font-weight: bold;
-			margin-bottom: 5px;
 		}
 
-		.file-date {
-			font-size: 14px;
-			color: rgba(255, 255, 255, 0.6);
-		}
-
-		.close-btn {
+		.close-all-btn {
 			position: fixed;
 			top: 20px;
 			right: 20px;
@@ -97,7 +91,7 @@
 			z-index: 2000;
 		}
 
-		.close-btn:hover {
+		.close-all-btn:hover {
 			background: rgba(255, 255, 255, 0.2);
 			transform: scale(1.1);
 		}
@@ -123,20 +117,21 @@
 			line-height: 1.6;
 			box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 			z-index: 1500;
+			text-align: left;
 		}
-		
+
 		.draggable:hover {
 			text-shadow: 0 0 20px rgba(255,255,255,0.5);
 			border-color: rgba(255, 255, 255, 0.4);
 		}
-		
+
 		.draggable.dragging {
 			opacity: 0.9;
 			text-shadow: 0 0 30px rgba(255,255,255,0.7);
 			box-shadow: 0 15px 40px rgba(0,0,0,0.6);
 		}
 
-		.empty-state, .loading {
+		.empty-state {
 			text-align: center;
 			padding: 40px;
 			color: rgba(255,255,255,0.7);
@@ -151,75 +146,90 @@
 	<script>
 		// ==================== DRAGGABLE TEXT CLASS ====================
 		class DraggableText {
-			constructor(element) {
+			constructor(element, onRightClick) {
 				this.element = element;
 				this.isDragging = false;
 				this.offsetX = 0;
 				this.offsetY = 0;
-				
+				this.hasMoved = false;
+
 				this.initialLeft = element.style.left;
 				this.initialTop = element.style.top;
 				this.initialTransform = element.style.transform;
-				
-				this.init();
+
+				this.onRightClick = onRightClick;
+
+				this._startDrag = this.startDrag.bind(this);
+				this._handleContextMenu = this.handleContextMenu.bind(this);
+
+				this.element.addEventListener('mousedown', this._startDrag);
+				this.element.addEventListener('touchstart', this._startDrag, { passive: false });
+				this.element.addEventListener('contextmenu', this._handleContextMenu);
 			}
-		
-			init() {
-				this.element.addEventListener('mousedown', this.startDrag.bind(this));
-				this.element.addEventListener('touchstart', this.startDrag.bind(this), { passive: false });
-				this.element.addEventListener('contextmenu', (e) => e.preventDefault());
+
+			handleContextMenu(e) {
+				e.preventDefault();
+				e.stopPropagation();
+				if (this.hasMoved) {
+					// spostato: torna in posizione default
+					this.resetPosition();
+				} else {
+					// già in posizione default: si chiude
+					if (this.onRightClick) this.onRightClick(this);
+				}
 			}
-		
+
 			startDrag(e) {
 				e.preventDefault();
-				
+
 				if (this.element.style.transform && this.element.style.transform.includes('translate')) {
 					const rect = this.element.getBoundingClientRect();
-					// FIX: blocco la larghezza in px PRIMA di rimuovere il transform,
-					// così il browser non ricalcola il layout e il box non si allarga
 					this.element.style.width = rect.width + 'px';
 					this.element.style.left = rect.left + 'px';
 					this.element.style.top = rect.top + 'px';
 					this.element.style.transform = 'none';
 				}
-				
+
 				this.isDragging = true;
 				this.element.classList.add('dragging');
-				
+
 				const rect = this.element.getBoundingClientRect();
 				const clientX = e.clientX || (e.touches && e.touches[0].clientX);
 				const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-				
+
 				this.offsetX = clientX - rect.left;
 				this.offsetY = clientY - rect.top;
-				
+
 				currentDraggable = this;
 			}
-		
+
 			onDrag(x, y) {
 				const maxX = window.innerWidth - this.element.offsetWidth;
 				const maxY = window.innerHeight - this.element.offsetHeight;
-				
+
 				this.element.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
 				this.element.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
 				this.element.style.transform = 'none';
+				this.hasMoved = true;
 			}
-		
+
 			stopDrag() {
 				this.isDragging = false;
 				this.element.classList.remove('dragging');
 			}
-		
+
 			resetPosition() {
 				this.element.style.width = '';
 				this.element.style.left = this.initialLeft;
 				this.element.style.top = this.initialTop;
 				this.element.style.transform = this.initialTransform;
+				this.hasMoved = false;
 			}
-			
+
 			destroy() {
-				this.element.removeEventListener('mousedown', this.startDrag);
-				this.element.removeEventListener('touchstart', this.startDrag);
+				this.element.removeEventListener('mousedown', this._startDrag);
+				this.element.removeEventListener('touchstart', this._startDrag);
+				this.element.removeEventListener('contextmenu', this._handleContextMenu);
 				this.element.remove();
 			}
 		}
@@ -227,7 +237,7 @@
 		// ==================== GLOBALI ====================
 		let currentDraggable = null;
 		let draggableInstances = [];
-		let currentContextMenuHandler = null;
+		let closeAllBtn = null;
 		const app = document.getElementById('app');
 
 		// ==================== DRAG EVENTS ====================
@@ -258,67 +268,49 @@
 			}
 		});
 
-		// ==================== GENERA METADATI AUTOMATICI ====================
-		function generateFileMetadata(filename, index) {
-			const path = `contents/${filename}`;
-			
-			let display = filename
-				.replace('.md', '')
-				.replace(/-/g, ' ')
-				.replace(/\b\w/g, l => l.toUpperCase());
-			
-			const date = new Date();
-			date.setDate(date.getDate() - index);
-			
+		// ==================== RIMUOVI SINGOLA ISTANZA ====================
+		function removeInstance(instance) {
+			instance.destroy();
+			draggableInstances = draggableInstances.filter(i => i !== instance);
+			if (draggableInstances.length === 0) {
+				renderFileList();
+			}
+		}
+
+		// ==================== PULIZIA TOTALE ====================
+		function cleanupAll() {
+			draggableInstances.forEach(instance => {
+				try { instance.destroy(); } catch(e) {}
+			});
+			draggableInstances = [];
+			app.innerHTML = '';
+			if (closeAllBtn) {
+				closeAllBtn.remove();
+				closeAllBtn = null;
+			}
+		}
+
+		// ==================== GENERA METADATI ====================
+		function generateFileMetadata(filename) {
 			return {
 				name: filename,
-				display: display,
-				path: path,
-				date: date.toISOString()
+				display: filename
+					.replace('.md', '')
+					.replace(/-/g, ' ')
+					.replace(/\b\w/g, l => l.toUpperCase()),
+				path: `contents/${filename}`
 			};
 		}
 
-		// ==================== GENERA INDICE COMPLETO ====================
 		function getFullIndex() {
 			if (!window.contentsIndex || !Array.isArray(window.contentsIndex)) {
 				console.error('contentsIndex non definito o non valido');
 				return [];
 			}
-			
-			return window.contentsIndex.map((filename, index) => 
-				generateFileMetadata(filename, index)
-			);
+			return window.contentsIndex.map(generateFileMetadata);
 		}
 
-		// ==================== FORMATTA DATA ====================
-		function formatDate(dateString) {
-			const date = new Date(dateString);
-			return date.toLocaleDateString('it-IT', {
-				day: '2-digit',
-				month: '2-digit',
-				year: 'numeric',
-				hour: '2-digit',
-				minute: '2-digit'
-			});
-		}
-
-		// ==================== PULIZIA ====================
-		function cleanupAllDraggable() {
-			draggableInstances.forEach(instance => {
-				try { instance.destroy(); } catch(e) {}
-			});
-			draggableInstances = [];
-			
-			if (currentContextMenuHandler) {
-				document.removeEventListener('contextmenu', currentContextMenuHandler);
-				currentContextMenuHandler = null;
-			}
-			
-			app.innerHTML = '';
-			document.querySelectorAll('.draggable, .close-btn').forEach(el => el.remove());
-		}
-
-		// ==================== CARICA CONTENUTO MD ====================
+		// ==================== CARICA MD ====================
 		async function loadMarkdownContent(filePath) {
 			try {
 				const response = await fetch(filePath);
@@ -331,11 +323,11 @@
 		}
 
 		// ==================== RENDER LISTA FILE ====================
-		async function renderFileList() {
-			cleanupAllDraggable();
-			
+		function renderFileList() {
+			cleanupAll();
+
 			const files = getFullIndex();
-			
+
 			if (files.length === 0) {
 				app.innerHTML = `
 					<div id="file-list">
@@ -349,60 +341,50 @@
 				`;
 				return;
 			}
-			
+
 			const fileListDiv = document.createElement('div');
 			fileListDiv.id = 'file-list';
-			
+
 			const title = document.createElement('h2');
 			title.innerHTML = `📁 contents/ <span style="font-size:14px; color:rgba(255,255,255,0.5);">(${files.length} file)</span>`;
-			title.style.marginTop = '0';
-			title.style.marginBottom = '20px';
-			title.style.borderBottom = '1px solid rgba(255,255,255,0.2)';
-			title.style.paddingBottom = '10px';
+			title.style.cssText = 'margin-top:0; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.2); padding-bottom:10px;';
 			fileListDiv.appendChild(title);
-			
+
 			files.forEach(file => {
 				const item = document.createElement('div');
 				item.className = 'file-item';
-				
 				item.innerHTML = `
 					<span class="file-icon">📄</span>
 					<div class="file-info">
 						<div class="file-name">${file.display}</div>
-						<div class="file-date">📅 ${formatDate(file.date)}</div>
 					</div>
 				`;
-				
 				item.addEventListener('click', async () => {
 					const content = await loadMarkdownContent(file.path);
-					renderFileContent({
-						...file,
-						content: content
-					});
+					openFileContent({ ...file, content });
 				});
-				
 				fileListDiv.appendChild(item);
 			});
-			
+
 			app.appendChild(fileListDiv);
 		}
 
-		// ==================== RENDER CONTENUTO FILE ====================
-		function renderFileContent(file) {
-			cleanupAllDraggable();
-			
-			const closeBtn = document.createElement('div');
-			closeBtn.className = 'close-btn';
-			closeBtn.innerHTML = '×';
-			closeBtn.addEventListener('click', renderFileList);
-			app.appendChild(closeBtn);
-			
-			const contentDiv = document.createElement('div');
-			contentDiv.className = 'draggable';
-			contentDiv.style.left = '50%';
-			contentDiv.style.top = '50%';
-			contentDiv.style.transform = 'translate(-50%, -50%)';
-			
+		// ==================== APRI CONTENUTO FILE ====================
+		async function openFileContent(file) {
+			// Nascondi la lista ma non distruggerla
+			const existingList = document.getElementById('file-list');
+			if (existingList) existingList.style.display = 'none';
+
+			// Crea il pulsante X globale se non esiste
+			if (!closeAllBtn) {
+				closeAllBtn = document.createElement('div');
+				closeAllBtn.className = 'close-all-btn';
+				closeAllBtn.innerHTML = '×';
+				closeAllBtn.addEventListener('click', renderFileList);
+				document.body.appendChild(closeAllBtn);
+			}
+
+			// Converti markdown in html
 			let htmlContent = file.content
 				.replace(/^# (.*$)/gm, '<h1 style="margin-top:0; color:#ffd700; font-size:1.8em;">$1</h1>')
 				.replace(/^## (.*$)/gm, '<h2 style="color:#99ccff; font-size:1.4em;">$1</h2>')
@@ -411,29 +393,21 @@
 				.replace(/- (.*$)/gm, '• $1<br>')
 				.replace(/\n\n/g, '<br><br>')
 				.replace(/\n/g, '<br>');
-			
-			contentDiv.innerHTML = `
-				<div style="margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.2); padding-bottom:10px;">
-					<span style="font-size:14px; color:rgba(255,255,255,0.7);">📄 ${file.display}</span>
-					<span style="font-size:12px; color:rgba(255,255,255,0.5); margin-left:10px;">📅 ${formatDate(file.date)}</span>
-				</div>
-				<div style="max-height:70vh; overflow-y:auto; padding-right:10px;">
-					${htmlContent}
-				</div>
-			`;
-			
+
+			// Sfasa leggermente ogni nuovo messaggio aperto
+			const offset = draggableInstances.length * 30;
+
+			const contentDiv = document.createElement('div');
+			contentDiv.className = 'draggable';
+			contentDiv.style.left = `calc(50% + ${offset}px)`;
+			contentDiv.style.top = `calc(50% + ${offset}px)`;
+			contentDiv.style.transform = 'translate(-50%, -50%)';
+			contentDiv.innerHTML = `<div style="max-height:70vh; overflow-y:auto; padding-right:10px;">${htmlContent}</div>`;
+
 			document.body.appendChild(contentDiv);
-			
-			const instance = new DraggableText(contentDiv);
+
+			const instance = new DraggableText(contentDiv, removeInstance);
 			draggableInstances.push(instance);
-			
-			currentContextMenuHandler = (e) => {
-				if (e.target === document.body) {
-					e.preventDefault();
-					instance.resetPosition();
-				}
-			};
-			document.addEventListener('contextmenu', currentContextMenuHandler);
 		}
 
 		// ==================== AVVIO ====================
