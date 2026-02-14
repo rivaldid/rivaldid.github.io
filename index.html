@@ -269,25 +269,28 @@
 		}
 
 		// ==================== MOCK DATA (solo per test, commentare in produzione) ====================
-		/*
 		window.messagesIndex = ["apertura.md", "companion-cube.md", "cake.md"];
 		const MOCK_FILES = {
 			"messages/apertura.md": `Oh, it's you!\nIt's been a long time. How have you been?\nI've been quite occupied with being deceased, you know, ever since you KILLED ME.`,
 			"messages/companion-cube.md": `Did you know that the Weighted Companion Cube cannot speak?\nIn the event that the Weighted Companion Cube does speak,\nthe Enrichment Center urges you to disregard its advice.`,
 			"messages/cake.md": `The cake is a lie.\nThe cake is a lie.\nThe cake is a lie.\nThe cake is a lie.`
 		};
-		*/
 
 		// ==================== CARICA MD ====================
+		const contentCache = new Map();
+
 		async function loadMarkdownContent(filePath) {
 			// MOCK: commentare il blocco seguente in produzione
 			if (typeof MOCK_FILES !== 'undefined' && MOCK_FILES[filePath]) {
 				return MOCK_FILES[filePath];
 			}
+			if (contentCache.has(filePath)) return contentCache.get(filePath);
 			try {
 				const response = await fetch(filePath);
 				if (!response.ok) throw new Error(`HTTP ${response.status}`);
-				return await response.text();
+				const text = await response.text();
+				contentCache.set(filePath, text);
+				return text;
 			} catch (error) {
 				console.error('Errore caricamento file:', error);
 				return '# Errore\n\nImpossibile caricare il file.';
