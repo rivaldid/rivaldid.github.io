@@ -33,7 +33,7 @@
 			background: rgba(10, 12, 15, 0.95);
 			border: 1px solid rgba(255, 255, 255, 0.2);
 			border-radius: 12px;
-			padding: 20px;
+			padding: 12px 14px;
 			backdrop-filter: blur(10px);
 			box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 			z-index: 1000;
@@ -72,30 +72,6 @@
 			font-weight: bold;
 		}
 
-		.close-all-btn {
-			position: fixed;
-			top: 20px;
-			right: 20px;
-			width: 50px;
-			height: 50px;
-			background: rgba(255, 255, 255, 0.1);
-			border: 1px solid rgba(255, 255, 255, 0.2);
-			border-radius: 50%;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			font-size: 30px;
-			cursor: pointer;
-			color: white;
-			transition: all 0.2s;
-			z-index: 2000;
-		}
-
-		.close-all-btn:hover {
-			background: rgba(255, 255, 255, 0.2);
-			transform: scale(1.1);
-		}
-
 		.draggable {
 			position: absolute;
 			color: white;
@@ -131,6 +107,32 @@
 			box-shadow: 0 15px 40px rgba(0,0,0,0.6);
 		}
 
+		.msg-close {
+			position: absolute;
+			top: 0;
+			right: 0;
+			width: 18px;
+			height: 18px;
+			background: rgba(255, 255, 255, 0.1);
+			border-left: 1px solid rgba(255, 255, 255, 0.2);
+			border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+			border-radius: 0 10px 0 4px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 12px;
+			line-height: 1;
+			cursor: pointer;
+			color: rgba(255,255,255,0.6);
+			transition: all 0.15s;
+			z-index: 10;
+		}
+
+		.msg-close:hover {
+			background: rgba(255, 255, 255, 0.25);
+			color: white;
+		}
+
 		.empty-state {
 			text-align: center;
 			padding: 40px;
@@ -142,41 +144,19 @@
 <body>
 	<div id="app"></div>
 
-	<script src="contents_index.js"></script>
+	<script src="messages_index.js"></script>
 	<script>
 		// ==================== DRAGGABLE TEXT CLASS ====================
 		class DraggableText {
-			constructor(element, onRightClick) {
+			constructor(element) {
 				this.element = element;
 				this.isDragging = false;
 				this.offsetX = 0;
 				this.offsetY = 0;
-				this.hasMoved = false;
-
-				this.initialLeft = element.style.left;
-				this.initialTop = element.style.top;
-				this.initialTransform = element.style.transform;
-
-				this.onRightClick = onRightClick;
-
 				this._startDrag = this.startDrag.bind(this);
-				this._handleContextMenu = this.handleContextMenu.bind(this);
 
 				this.element.addEventListener('mousedown', this._startDrag);
 				this.element.addEventListener('touchstart', this._startDrag, { passive: false });
-				this.element.addEventListener('contextmenu', this._handleContextMenu);
-			}
-
-			handleContextMenu(e) {
-				e.preventDefault();
-				e.stopPropagation();
-				if (this.hasMoved) {
-					// spostato: torna in posizione default
-					this.resetPosition();
-				} else {
-					// già in posizione default: si chiude
-					if (this.onRightClick) this.onRightClick(this);
-				}
 			}
 
 			startDrag(e) {
@@ -210,7 +190,6 @@
 				this.element.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
 				this.element.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
 				this.element.style.transform = 'none';
-				this.hasMoved = true;
 			}
 
 			stopDrag() {
@@ -218,18 +197,9 @@
 				this.element.classList.remove('dragging');
 			}
 
-			resetPosition() {
-				this.element.style.width = '';
-				this.element.style.left = this.initialLeft;
-				this.element.style.top = this.initialTop;
-				this.element.style.transform = this.initialTransform;
-				this.hasMoved = false;
-			}
-
 			destroy() {
 				this.element.removeEventListener('mousedown', this._startDrag);
 				this.element.removeEventListener('touchstart', this._startDrag);
-				this.element.removeEventListener('contextmenu', this._handleContextMenu);
 				this.element.remove();
 			}
 		}
@@ -237,7 +207,6 @@
 		// ==================== GLOBALI ====================
 		let currentDraggable = null;
 		let draggableInstances = [];
-		let closeAllBtn = null;
 		const app = document.getElementById('app');
 
 		// ==================== DRAG EVENTS ====================
@@ -272,9 +241,6 @@
 		function removeInstance(instance) {
 			instance.destroy();
 			draggableInstances = draggableInstances.filter(i => i !== instance);
-			if (draggableInstances.length === 0) {
-				renderFileList();
-			}
 		}
 
 		// ==================== PULIZIA TOTALE ====================
@@ -283,35 +249,41 @@
 				try { instance.destroy(); } catch(e) {}
 			});
 			draggableInstances = [];
-			app.innerHTML = '';
-			if (closeAllBtn) {
-				closeAllBtn.remove();
-				closeAllBtn = null;
-			}
+			document.querySelectorAll('.draggable').forEach(el => el.remove());
 		}
 
-		// ==================== GENERA METADATI ====================
-		function generateFileMetadata(filename) {
-			return {
+		// ==================== INDICE ====================
+		function getFullIndex() {
+			if (!window.messagesIndex || !Array.isArray(window.messagesIndex)) {
+				console.error('messagesIndex non definito o non valido');
+				return [];
+			}
+			return window.messagesIndex.map(filename => ({
 				name: filename,
 				display: filename
 					.replace('.md', '')
 					.replace(/-/g, ' ')
 					.replace(/\b\w/g, l => l.toUpperCase()),
-				path: `contents/${filename}`
-			};
+				path: `messages/${filename}`
+			}));
 		}
 
-		function getFullIndex() {
-			if (!window.contentsIndex || !Array.isArray(window.contentsIndex)) {
-				console.error('contentsIndex non definito o non valido');
-				return [];
-			}
-			return window.contentsIndex.map(generateFileMetadata);
-		}
+		// ==================== MOCK DATA (solo per test, commentare in produzione) ====================
+		/*
+		window.messagesIndex = ["apertura.md", "companion-cube.md", "cake.md"];
+		const MOCK_FILES = {
+			"messages/apertura.md": `Oh, it's you!\nIt's been a long time. How have you been?\nI've been quite occupied with being deceased, you know, ever since you KILLED ME.`,
+			"messages/companion-cube.md": `Did you know that the Weighted Companion Cube cannot speak?\nIn the event that the Weighted Companion Cube does speak,\nthe Enrichment Center urges you to disregard its advice.`,
+			"messages/cake.md": `The cake is a lie.\nThe cake is a lie.\nThe cake is a lie.\nThe cake is a lie.`
+		};
+		*/
 
 		// ==================== CARICA MD ====================
 		async function loadMarkdownContent(filePath) {
+			// MOCK: commentare il blocco seguente in produzione
+			if (typeof MOCK_FILES !== 'undefined' && MOCK_FILES[filePath]) {
+				return MOCK_FILES[filePath];
+			}
 			try {
 				const response = await fetch(filePath);
 				if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -331,11 +303,11 @@
 			if (files.length === 0) {
 				app.innerHTML = `
 					<div id="file-list">
-						<h2 style="margin-top:0; color:white;">📁 contents/</h2>
+						<h2 style="margin-top:0; color:white;">📁 home/</h2>
 						<div class="empty-state">
-							📂 Nessun file in contents_index.js<br><br>
-							Aggiungi: <code>const contentsIndex = ["foo.md", "bar.md", "baz.md"];</code><br><br>
-							<small style="color:#999;">DEBUG: window.contentsIndex = ${JSON.stringify(window.contentsIndex)}</small>
+							📂 Nessun file in messages_index.js<br><br>
+							Aggiungi: <code>const messagesIndex = ["foo.md", "bar.md", "baz.md"];</code><br><br>
+							<small style="color:#999;">DEBUG: window.messagesIndex = ${JSON.stringify(window.messagesIndex)}</small>
 						</div>
 					</div>
 				`;
@@ -346,7 +318,7 @@
 			fileListDiv.id = 'file-list';
 
 			const title = document.createElement('h2');
-			title.innerHTML = `📁 contents/ <span style="font-size:14px; color:rgba(255,255,255,0.5);">(${files.length} file)</span>`;
+			title.innerHTML = `📁 home/ <span style="font-size:14px; color:rgba(255,255,255,0.5);">(${files.length} file)</span>`;
 			title.style.cssText = 'margin-top:0; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.2); padding-bottom:10px;';
 			fileListDiv.appendChild(title);
 
@@ -371,17 +343,11 @@
 
 		// ==================== APRI CONTENUTO FILE ====================
 		async function openFileContent(file) {
-			// Nascondi la lista ma non distruggerla
-			const existingList = document.getElementById('file-list');
-			if (existingList) existingList.style.display = 'none';
-
-			// Crea il pulsante X globale se non esiste
-			if (!closeAllBtn) {
-				closeAllBtn = document.createElement('div');
-				closeAllBtn.className = 'close-all-btn';
-				closeAllBtn.innerHTML = '×';
-				closeAllBtn.addEventListener('click', renderFileList);
-				document.body.appendChild(closeAllBtn);
+			// Toggle: se già aperto lo chiude
+			const existing = draggableInstances.find(i => i.filename === file.name);
+			if (existing) {
+				removeInstance(existing);
+				return;
 			}
 
 			// Converti markdown in html
@@ -390,7 +356,7 @@
 				.replace(/^## (.*$)/gm, '<h2 style="color:#99ccff; font-size:1.4em;">$1</h2>')
 				.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#ff9999;">$1</strong>')
 				.replace(/\*(.*?)\*/g, '<em style="color:#99ff99;">$1</em>')
-				.replace(/- (.*$)/gm, '• $1<br>')
+				.replace(/- (.*$)/gm, '\u2022 $1<br>')
 				.replace(/\n\n/g, '<br><br>')
 				.replace(/\n/g, '<br>');
 
@@ -402,18 +368,27 @@
 			contentDiv.style.left = `calc(50% + ${offset}px)`;
 			contentDiv.style.top = `calc(50% + ${offset}px)`;
 			contentDiv.style.transform = 'translate(-50%, -50%)';
-			contentDiv.innerHTML = `<div style="max-height:70vh; overflow-y:auto; padding-right:10px;">${htmlContent}</div>`;
+			contentDiv.style.position = 'absolute';
+			contentDiv.innerHTML = `<span class="msg-close">×</span><div style="max-height:70vh; overflow-y:auto; padding-right:6px; margin-top:2px;">${htmlContent}</div>`;
 
 			document.body.appendChild(contentDiv);
 
-			const instance = new DraggableText(contentDiv, removeInstance);
+			const instance = new DraggableText(contentDiv);
+			instance.filename = file.name;
 			draggableInstances.push(instance);
+
+			// La X ferma il drag e chiude solo questa finestra
+			contentDiv.querySelector('.msg-close').addEventListener('mousedown', (e) => e.stopPropagation());
+			contentDiv.querySelector('.msg-close').addEventListener('click', (e) => {
+				e.stopPropagation();
+				removeInstance(instance);
+			});
 		}
 
 		// ==================== AVVIO ====================
 		setTimeout(() => {
 			console.log('🚀 Avvio applicazione');
-			console.log('contentsIndex:', window.contentsIndex);
+			console.log('messagesIndex:', window.messagesIndex);
 			renderFileList();
 		}, 50);
 	</script>
