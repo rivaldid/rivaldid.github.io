@@ -4,4 +4,5 @@ window.messagesIndex = [
   'home.md',
   'oldschool.md',
   'portal.md',
+  'zen.md',
 ];
