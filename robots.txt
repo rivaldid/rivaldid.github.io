@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /
+
+# Keep out of the lab.
+# "The cake is a lie"
