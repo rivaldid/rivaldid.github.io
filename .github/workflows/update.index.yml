@@ -1,0 +1,33 @@
+name: Update Messages Index
+
+on:
+  push:
+    paths:
+      - 'messages/**' # Si attiva solo se aggiungi/modifichi file nella cartella messages
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate messages_index.js
+        run: |
+          echo "// Generato automaticamente da GitHub Actions" > messages_index.js
+          echo "window.messagesIndex = [" >> messages_index.js
+          # Prende tutti i file .md in messages/, estrae il nome e formatta l'array
+          ls messages/*.md | xargs -n 1 basename | sed "s/.*/  '&',/" >> messages_index.js
+          echo "];" >> messages_index.js
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add messages_index.js
+          # Evita l'errore se non ci sono cambiamenti reali
+          git commit -m "chore: auto-update messages_index.js" || exit 0
+          git push
