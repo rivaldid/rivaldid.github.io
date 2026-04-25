@@ -1,5 +1,7 @@
+// Generato automaticamente da GitHub Actions
 window.messagesIndex = [
-  "home.md",
-  "portal.md", 
-  "hello.md"
+  'hello.md',
+  'home.md',
+  'oldschool.md',
+  'portal.md',
 ];
