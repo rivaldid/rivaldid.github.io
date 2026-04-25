@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The deelab is a lie</title>
+    <title>The deelab os a lie</title>
     
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="//unpkg.com/force-graph"></script>
@@ -16,25 +16,25 @@
 
     <div id="overlay-ui">
         <div class="ui-box">
-            <strong>DEELAB OS v2.0</strong><br>
-            Status: Interconnected<br>
+            <strong>DEELAB OS v2.1</strong><br>
+            Status: Operational<br>
             Nodes: <span id="node-count">0</span>
         </div>
-        <div style="font-size: 0.8em; color: rgba(0,255,0,0.5);">
-            [Click sui nodi per esplorare i file]
+        <div style="font-size: 0.8em; color: rgba(0,255,0,0.5); pointer-events: none;">
+            [Trascina i nodi per riordinare la rete]
         </div>
     </div>
 
     <script src="messages_index.js"></script>
 
     <script>
-        // Inizializzazione Grafo
+        // Configurazione Dati Grafo
         const graphData = {
-            nodes: messagesIndex.map(file => ({ id: file, name: file })),
-            links: [] // Qui potresti aggiungere collegamenti logici se vuoi
+            nodes: window.messagesIndex.map(file => ({ id: file, name: file })),
+            links: []
         };
 
-        // Se hai pochi file, creiamo qualche collegamento fake per "nerdizzare" il grafo
+        // Creazione collegamenti a raggiera dal primo nodo (opzionale, per estetica)
         if (graphData.nodes.length > 1) {
             for(let i=1; i < graphData.nodes.length; i++) {
                 graphData.links.push({ source: graphData.nodes[0].id, target: graphData.nodes[i].id });
@@ -43,13 +43,23 @@
 
         document.getElementById('node-count').innerText = graphData.nodes.length;
 
+        // Inizializzazione Grafo
         const Graph = ForceGraph()
             (document.getElementById('graph-container'))
             .graphData(graphData)
             .nodeColor(() => '#00ff00')
-            .nodeLabel('name')
             .linkColor(() => '#004400')
             .linkWidth(1)
+            
+            // --- BLOCCO NAVIGAZIONE ---
+            .enablePanInteraction(false) // Impedisce di trascinare via l'intero grafico
+            
+            // --- LOGICA LOCK NODI ---
+            .onNodeDragEnd(node => {
+                node.fx = node.x; // Fissa la coordinata X
+                node.fy = node.y; // Fissa la coordinata Y
+            })
+            
             .nodeCanvasObject((node, ctx, globalScale) => {
                 const label = node.name;
                 const fontSize = 14/globalScale;
@@ -59,14 +69,18 @@
                 
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI, false);
-                ctx.fillStyle = node.color;
+                ctx.fillStyle = '#00ff00';
                 ctx.fill();
+                
+                // Effetto bagliore sui nodi
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = "#00ff00";
             })
             .onNodeClick(node => {
                 openFileContent(node.id);
             });
 
-        // Gestione Finestre (Evoluzione del tuo codice originale)
+        // Gestione Finestre
         function openFileContent(fileName) {
             const existingWin = document.getElementById(`win-${fileName}`);
             if (existingWin) {
@@ -78,16 +92,16 @@
                 .then(response => response.text())
                 .then(text => {
                     createWindow(fileName, marked.parse(text));
-                });
+                })
+                .catch(err => console.error("Errore caricamento file:", err));
         }
 
         function createWindow(title, content) {
             const win = document.createElement('div');
             win.id = `win-${title}`;
             win.className = 'window';
-            win.style.display = 'flex';
-            win.style.top = '100px';
-            win.style.left = '100px';
+            win.style.top = '150px';
+            win.style.left = '150px';
 
             win.innerHTML = `
                 <div class="window-header" onmousedown="dragStart(event, this.parentElement)">
@@ -101,7 +115,7 @@
             bringToFront(win);
         }
 
-        // Funzioni per il Dragging
+        // Logica Drag & Drop Finestre
         let activeWin = null;
         let offset = { x: 0, y: 0 };
 
@@ -131,7 +145,7 @@
             win.style.zIndex = ++zIndexCounter;
         }
 
-        // Adatta il grafo al ridimensionamento della finestra
+        // Resize responsive
         window.addEventListener('resize', () => {
             Graph.width(window.innerWidth).height(window.innerHeight);
         });
