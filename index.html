@@ -1,401 +1,212 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>The deelab is a lie</title>
-	<style>
-		body {
-			margin: 0;
-			height: 100vh;
-			background: #0a0c0f;
-			background-image: 
-				radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 20%),
-				radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.05) 0%, transparent 25%),
-				radial-gradient(circle at 40% 80%, rgba(255, 255, 255, 0.03) 0%, transparent 30%),
-				radial-gradient(circle at 90% 20%, rgba(255, 255, 255, 0.04) 0%, transparent 22%),
-				radial-gradient(circle at 10% 60%, rgba(255, 255, 255, 0.02) 0%, transparent 18%),
-				linear-gradient(135deg, #0f1215 0%, #1a1e24 100%);
-			font-family: 'Courier New', monospace;
-			overflow: hidden;
-			color: white;
-		}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>deelab.org - System Graph</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="//unpkg.com/force-graph"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #0d0d0d;
+            color: #00ff00;
+            overflow: hidden;
+        }
 
-		#file-list {
-			position: absolute;
-			top: 50%;
-			left: 50%;
-			transform: translate(-50%, -50%);
-			width: 600px;
-			max-width: 90vw;
-			max-height: 80vh;
-			overflow-y: auto;
-			background: rgba(10, 12, 15, 0.95);
-			border: 1px solid rgba(255, 255, 255, 0.2);
-			border-radius: 12px;
-			padding: 12px 14px;
-			backdrop-filter: blur(10px);
-			box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-			z-index: 1000;
-		}
+        #graph-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0; /* Resta sullo sfondo */
+        }
 
-		.file-item {
-			display: flex;
-			align-items: center;
-			padding: 15px 20px;
-			margin-bottom: 10px;
-			background: rgba(255, 255, 255, 0.05);
-			border: 1px solid rgba(255, 255, 255, 0.1);
-			border-radius: 8px;
-			cursor: pointer;
-			transition: all 0.2s;
-			color: white;
-		}
+        .window {
+            position: absolute;
+            width: 400px;
+            background-color: #1a1a1a;
+            border: 1px solid #00ff00;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+            z-index: 10; /* Sopra al grafo */
+            display: none;
+            flex-direction: column;
+        }
 
-		.file-item:hover {
-			background: rgba(255, 255, 255, 0.15);
-			border-color: rgba(255, 255, 255, 0.3);
-			transform: translateX(5px);
-		}
+        .window-header {
+            padding: 8px;
+            background-color: #00ff00;
+            color: #000;
+            cursor: move;
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
 
-		.file-icon {
-			margin-right: 15px;
-			font-size: 24px;
-		}
+        .close-btn {
+            cursor: pointer;
+            padding: 0 5px;
+        }
 
-		.file-info {
-			flex: 1;
-		}
+        .window-content {
+            padding: 15px;
+            overflow-y: auto;
+            max-height: 400px;
+            background: rgba(13, 13, 13, 0.9);
+            line-height: 1.4;
+        }
 
-		.file-name {
-			font-size: 18px;
-			font-weight: bold;
-		}
+        /* Stile per il contenuto Markdown */
+        .window-content h1 { font-size: 1.2em; border-bottom: 1px solid #00ff00; }
+        .window-content a { color: #00ff00; text-decoration: underline; }
+        .window-content code { background: #333; padding: 2px 4px; }
 
-		.draggable {
-			position: absolute;
-			color: white;
-			text-shadow: 0 0 10px rgba(255,255,255,0.3);
-			cursor: move;
-			user-select: none;
-			padding: 20px;
-			transition: text-shadow 0.2s;
-			will-change: left, top;
-			white-space: pre-wrap;
-			word-wrap: break-word;
-			max-width: 80vw;
-			box-sizing: border-box;
-			background: rgba(10, 12, 15, 0.95);
-			border: 1px solid rgba(255, 255, 255, 0.2);
-			border-radius: 12px;
-			backdrop-filter: blur(10px);
-			font-size: clamp(16px, 2vw, 24px);
-			line-height: 1.6;
-			box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-			z-index: 1500;
-			text-align: left;
-		}
+        #overlay-ui {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            pointer-events: none;
+        }
 
-		.draggable:hover {
-			text-shadow: 0 0 20px rgba(255,255,255,0.5);
-			border-color: rgba(255, 255, 255, 0.4);
-		}
-
-		.draggable.dragging {
-			opacity: 0.9;
-			text-shadow: 0 0 30px rgba(255,255,255,0.7);
-			box-shadow: 0 15px 40px rgba(0,0,0,0.6);
-		}
-
-		.msg-close {
-			position: absolute;
-			top: 0;
-			right: 0;
-			width: 18px;
-			height: 18px;
-			background: rgba(255, 255, 255, 0.1);
-			border-left: 1px solid rgba(255, 255, 255, 0.2);
-			border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-			border-radius: 0 10px 0 4px;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			font-size: 12px;
-			line-height: 1;
-			cursor: pointer;
-			color: rgba(255,255,255,0.6);
-			transition: all 0.15s;
-			z-index: 10;
-		}
-
-		.msg-close:hover {
-			background: rgba(255, 255, 255, 0.25);
-			color: white;
-		}
-
-		.empty-state {
-			text-align: center;
-			padding: 40px;
-			color: rgba(255,255,255,0.7);
-			font-size: 18px;
-		}
-	</style>
+        .ui-box {
+            background: rgba(0, 255, 0, 0.1);
+            border-left: 3px solid #00ff00;
+            padding: 10px;
+            margin-bottom: 10px;
+            pointer-events: auto;
+        }
+    </style>
 </head>
 <body>
-	<div id="app"></div>
 
-	<script src="messages_index.js"></script>
-	<script>
-		// ==================== DRAGGABLE TEXT CLASS ====================
-		class DraggableText {
-			constructor(element) {
-				this.element = element;
-				this.isDragging = false;
-				this.offsetX = 0;
-				this.offsetY = 0;
-				this._startDrag = this.startDrag.bind(this);
+    <div id="graph-container"></div>
 
-				this.element.addEventListener('mousedown', this._startDrag);
-				this.element.addEventListener('touchstart', this._startDrag, { passive: false });
-			}
+    <div id="overlay-ui">
+        <div class="ui-box">
+            <strong>DEELAB OS v2.0</strong><br>
+            Status: Interconnected<br>
+            Nodes: <span id="node-count">0</span>
+        </div>
+        <div style="font-size: 0.8em; color: rgba(0,255,0,0.5);">
+            [Click sui nodi per esplorare i file]
+        </div>
+    </div>
 
-			startDrag(e) {
-				e.preventDefault();
+    <script src="messages_index.js"></script>
 
-				if (this.element.style.transform && this.element.style.transform.includes('translate')) {
-					const rect = this.element.getBoundingClientRect();
-					this.element.style.width = rect.width + 'px';
-					this.element.style.left = rect.left + 'px';
-					this.element.style.top = rect.top + 'px';
-					this.element.style.transform = 'none';
-				}
+    <script>
+        // Inizializzazione Grafo
+        const graphData = {
+            nodes: messagesIndex.map(file => ({ id: file, name: file })),
+            links: [] // Qui potresti aggiungere collegamenti logici se vuoi
+        };
 
-				this.isDragging = true;
-				this.element.classList.add('dragging');
+        // Se hai pochi file, creiamo qualche collegamento fake per "nerdizzare" il grafo
+        if (graphData.nodes.length > 1) {
+            for(let i=1; i < graphData.nodes.length; i++) {
+                graphData.links.push({ source: graphData.nodes[0].id, target: graphData.nodes[i].id });
+            }
+        }
 
-				const rect = this.element.getBoundingClientRect();
-				const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-				const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+        document.getElementById('node-count').innerText = graphData.nodes.length;
 
-				this.offsetX = clientX - rect.left;
-				this.offsetY = clientY - rect.top;
+        const Graph = ForceGraph()
+            (document.getElementById('graph-container'))
+            .graphData(graphData)
+            .nodeColor(() => '#00ff00')
+            .nodeLabel('name')
+            .linkColor(() => '#004400')
+            .linkWidth(1)
+            .nodeCanvasObject((node, ctx, globalScale) => {
+                const label = node.name;
+                const fontSize = 14/globalScale;
+                ctx.font = `${fontSize}px "Courier New"`;
+                ctx.fillStyle = '#00ff00';
+                ctx.fillText(label, node.x + 8, node.y + 3);
+                
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI, false);
+                ctx.fillStyle = node.color;
+                ctx.fill();
+            })
+            .onNodeClick(node => {
+                openFileContent(node.id);
+            });
 
-				currentDraggable = this;
-			}
+        // Gestione Finestre (Evoluzione del tuo codice originale)
+        function openFileContent(fileName) {
+            const existingWin = document.getElementById(`win-${fileName}`);
+            if (existingWin) {
+                bringToFront(existingWin);
+                return;
+            }
 
-			onDrag(x, y) {
-				const maxX = window.innerWidth - this.element.offsetWidth;
-				const maxY = window.innerHeight - this.element.offsetHeight;
+            fetch(`messages/${fileName}`)
+                .then(response => response.text())
+                .then(text => {
+                    createWindow(fileName, marked.parse(text));
+                });
+        }
 
-				this.element.style.left = Math.max(0, Math.min(x, maxX)) + 'px';
-				this.element.style.top = Math.max(0, Math.min(y, maxY)) + 'px';
-				this.element.style.transform = 'none';
-			}
+        function createWindow(title, content) {
+            const win = document.createElement('div');
+            win.id = `win-${title}`;
+            win.className = 'window';
+            win.style.display = 'flex';
+            win.style.top = '100px';
+            win.style.left = '100px';
 
-			stopDrag() {
-				this.isDragging = false;
-				this.element.classList.remove('dragging');
-			}
+            win.innerHTML = `
+                <div class="window-header" onmousedown="dragStart(event, this.parentElement)">
+                    <span>${title}</span>
+                    <span class="close-btn" onclick="this.parentElement.parentElement.remove()">[X]</span>
+                </div>
+                <div class="window-content">${content}</div>
+            `;
 
-			destroy() {
-				this.element.removeEventListener('mousedown', this._startDrag);
-				this.element.removeEventListener('touchstart', this._startDrag);
-				this.element.remove();
-			}
-		}
+            document.body.appendChild(win);
+            bringToFront(win);
+        }
 
-		// ==================== GLOBALI ====================
-		let currentDraggable = null;
-		let draggableInstances = [];
-		const app = document.getElementById('app');
+        // Funzioni per il Dragging
+        let activeWin = null;
+        let offset = { x: 0, y: 0 };
 
-		// ==================== DRAG EVENTS ====================
-		document.addEventListener('mousemove', (e) => {
-			if (!currentDraggable) return;
-			e.preventDefault();
-			currentDraggable.onDrag(e.clientX - currentDraggable.offsetX, e.clientY - currentDraggable.offsetY);
-		});
+        function dragStart(e, win) {
+            activeWin = win;
+            bringToFront(win);
+            offset.x = e.clientX - win.offsetLeft;
+            offset.y = e.clientY - win.offsetTop;
+            document.onmousemove = dragMove;
+            document.onmouseup = dragEnd;
+        }
 
-		document.addEventListener('mouseup', () => {
-			if (currentDraggable) {
-				currentDraggable.stopDrag();
-				currentDraggable = null;
-			}
-		});
+        function dragMove(e) {
+            if (activeWin) {
+                activeWin.style.left = (e.clientX - offset.x) + 'px';
+                activeWin.style.top = (e.clientY - offset.y) + 'px';
+            }
+        }
 
-		document.addEventListener('touchmove', (e) => {
-			if (!currentDraggable) return;
-			e.preventDefault();
-			const touch = e.touches[0];
-			currentDraggable.onDrag(touch.clientX - currentDraggable.offsetX, touch.clientY - currentDraggable.offsetY);
-		}, { passive: false });
+        function dragEnd() {
+            activeWin = null;
+            document.onmousemove = null;
+        }
 
-		document.addEventListener('touchend', () => {
-			if (currentDraggable) {
-				currentDraggable.stopDrag();
-				currentDraggable = null;
-			}
-		});
+        let zIndexCounter = 100;
+        function bringToFront(win) {
+            win.style.zIndex = ++zIndexCounter;
+        }
 
-		// ==================== RIMUOVI SINGOLA ISTANZA ====================
-		function removeInstance(instance) {
-			instance.destroy();
-			draggableInstances = draggableInstances.filter(i => i !== instance);
-		}
-
-		// ==================== PULIZIA TOTALE ====================
-		function cleanupAll() {
-			draggableInstances.forEach(instance => {
-				try { instance.destroy(); } catch(e) {}
-			});
-			draggableInstances = [];
-			document.querySelectorAll('.draggable').forEach(el => el.remove());
-		}
-
-		// ==================== INDICE ====================
-		function getFullIndex() {
-			if (!window.messagesIndex || !Array.isArray(window.messagesIndex)) {
-				console.error('messagesIndex non definito o non valido');
-				return [];
-			}
-			return window.messagesIndex.map(filename => ({
-				name: filename,
-				display: filename
-					.replace('.md', '')
-					.replace(/-/g, ' ')
-					.replace(/\b\w/g, l => l.toUpperCase()),
-				path: `messages/${filename}`
-			}));
-		}
-
-		// ==================== MOCK DATA (solo per test, commentare in produzione) ====================
-		/*
-		window.messagesIndex = ["apertura.md", "companion-cube.md", "cake.md"];
-		const MOCK_FILES = {
-			"messages/apertura.md": `Oh, it's you!\nIt's been a long time. How have you been?\nI've been quite occupied with being deceased, you know, ever since you KILLED ME.`,
-			"messages/companion-cube.md": `Did you know that the Weighted Companion Cube cannot speak?\nIn the event that the Weighted Companion Cube does speak,\nthe Enrichment Center urges you to disregard its advice.`,
-			"messages/cake.md": `The cake is a lie.\nThe cake is a lie.\nThe cake is a lie.\nThe cake is a lie.`
-		};
-		*/
-
-		// ==================== CARICA MD ====================
-		const contentCache = new Map();
-
-		async function loadMarkdownContent(filePath) {
-			// MOCK: commentare il blocco seguente in produzione
-			if (typeof MOCK_FILES !== 'undefined' && MOCK_FILES[filePath]) {
-				return MOCK_FILES[filePath];
-			}
-			if (contentCache.has(filePath)) return contentCache.get(filePath);
-			try {
-				const response = await fetch(filePath);
-				if (!response.ok) throw new Error(`HTTP ${response.status}`);
-				const text = await response.text();
-				contentCache.set(filePath, text);
-				return text;
-			} catch (error) {
-				console.error('Errore caricamento file:', error);
-				return '# Errore\n\nImpossibile caricare il file.';
-			}
-		}
-
-		// ==================== RENDER LISTA FILE ====================
-		function renderFileList() {
-			cleanupAll();
-
-			const files = getFullIndex();
-
-			if (files.length === 0) {
-				app.innerHTML = `
-					<div id="file-list">
-						<h2 style="margin-top:0; color:white;">📁 home/</h2>
-						<div class="empty-state">
-							📂 Nessun file in messages_index.js<br><br>
-							Aggiungi: <code>const messagesIndex = ["foo.md", "bar.md", "baz.md"];</code><br><br>
-							<small style="color:#999;">DEBUG: window.messagesIndex = ${JSON.stringify(window.messagesIndex)}</small>
-						</div>
-					</div>
-				`;
-				return;
-			}
-
-			const fileListDiv = document.createElement('div');
-			fileListDiv.id = 'file-list';
-
-			const title = document.createElement('h2');
-			title.innerHTML = `📁 home/ <span style="font-size:14px; color:rgba(255,255,255,0.5);">(${files.length} file)</span>`;
-			title.style.cssText = 'margin-top:0; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.2); padding-bottom:10px;';
-			fileListDiv.appendChild(title);
-
-			files.forEach(file => {
-				const item = document.createElement('div');
-				item.className = 'file-item';
-				item.innerHTML = `
-					<span class="file-icon">📄</span>
-					<div class="file-info">
-						<div class="file-name">${file.display}</div>
-					</div>
-				`;
-				item.addEventListener('click', async () => {
-					const content = await loadMarkdownContent(file.path);
-					openFileContent({ ...file, content });
-				});
-				fileListDiv.appendChild(item);
-			});
-
-			app.appendChild(fileListDiv);
-		}
-
-		// ==================== APRI CONTENUTO FILE ====================
-		async function openFileContent(file) {
-			// Toggle: se già aperto lo chiude
-			const existing = draggableInstances.find(i => i.filename === file.name);
-			if (existing) {
-				removeInstance(existing);
-				return;
-			}
-
-			// Converti markdown in html
-			let htmlContent = file.content
-				.replace(/^# (.*$)/gm, '<h1 style="margin-top:0; color:#ffd700; font-size:1.8em;">$1</h1>')
-				.replace(/^## (.*$)/gm, '<h2 style="color:#99ccff; font-size:1.4em;">$1</h2>')
-				.replace(/\*\*(.*?)\*\*/g, '<strong style="color:#ff9999;">$1</strong>')
-				.replace(/\*(.*?)\*/g, '<em style="color:#99ff99;">$1</em>')
-				.replace(/- (.*$)/gm, '\u2022 $1<br>')
-				.replace(/\n\n/g, '<br><br>')
-				.replace(/\n/g, '<br>');
-
-			// Sfasa leggermente ogni nuovo messaggio aperto
-			const offset = draggableInstances.length * 30;
-
-			const contentDiv = document.createElement('div');
-			contentDiv.className = 'draggable';
-			contentDiv.style.left = `calc(50% + ${offset}px)`;
-			contentDiv.style.top = `calc(50% + ${offset}px)`;
-			contentDiv.style.transform = 'translate(-50%, -50%)';
-			contentDiv.style.position = 'absolute';
-			contentDiv.innerHTML = `<span class="msg-close">×</span><div style="max-height:70vh; overflow-y:auto; padding-right:6px; margin-top:2px;">${htmlContent}</div>`;
-
-			document.body.appendChild(contentDiv);
-
-			const instance = new DraggableText(contentDiv);
-			instance.filename = file.name;
-			draggableInstances.push(instance);
-
-			// La X ferma il drag e chiude solo questa finestra
-			contentDiv.querySelector('.msg-close').addEventListener('mousedown', (e) => e.stopPropagation());
-			contentDiv.querySelector('.msg-close').addEventListener('click', (e) => {
-				e.stopPropagation();
-				removeInstance(instance);
-			});
-		}
-
-		// ==================== AVVIO ====================
-		setTimeout(() => {
-			console.log('🚀 Avvio applicazione');
-			console.log('messagesIndex:', window.messagesIndex);
-			renderFileList();
-		}, 50);
-	</script>
+        // Adatta il grafo al ridimensionamento della finestra
+        window.addEventListener('resize', () => {
+            Graph.width(window.innerWidth).height(window.innerHeight);
+        });
+    </script>
 </body>
 </html>
