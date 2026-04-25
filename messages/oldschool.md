@@ -1,0 +1,1 @@
+In a world without fences and walls, who needs Gates and Windows?
